@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice-Guided Talking Compass</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 50%, #4a5568 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        .app-title {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            color: #f7fafc;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            z-index: 100;
+        }
+
+        .permission-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            max-width: 350px;
+            padding: 30px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .permission-screen h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #63b3ed;
+        }
+
+        .permission-screen p {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .start-button {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(72, 187, 120, 0.4);
+            min-width: 200px;
+            touch-action: manipulation;
+        }
+
+        .start-button:hover,
+        .start-button:focus {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(72, 187, 120, 0.6);
+            outline: none;
+        }
+
+        .start-button:active {
+            transform: translateY(0);
+        }
+
+        .compass-app {
+            display: none;
+            width: 100%;
+            max-width: 400px;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .status-bar {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 12px 25px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            z-index: 90;
+            min-width: 250px;
+        }
+
+        .compass-container {
+            position: relative;
+            width: 340px;
+            height: 340px;
+            background: radial-gradient(circle, #2d3748 0%, #1a202c 100%);
+            border-radius: 50%;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5), inset 0 0 30px rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 8px solid rgba(255,255,255,0.2);
+            touch-action: manipulation;
+            margin: 20px 0;
+        }
+
+        .compass-container:hover,
+        .compass-container:focus {
+            transform: scale(1.02);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+            outline: none;
+        }
+
+        .compass-container.active {
+            border-color: #48bb78;
+            box-shadow: 0 0 50px rgba(72, 187, 120, 0.7);
+            animation: compassPulse 2s infinite;
+        }
+
+        @keyframes compassPulse {
+            0% { box-shadow: 0 0 50px rgba(72, 187, 120, 0.7); }
+            50% { box-shadow: 0 0 60px rgba(72, 187, 120, 0.9); }
+            100% { box-shadow: 0 0 50px rgba(72, 187, 120, 0.7); }
+        }
+
+        .compass-face {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: conic-gradient(
+                from 0deg,
+                #e53e3e 0deg 30deg,
+                #f56500 30deg 60deg,
+                #d69e2e 60deg 90deg,
+                #38a169 90deg 120deg,
+                #319795 120deg 150deg,
+                #3182ce 150deg 180deg,
+                #805ad5 180deg 210deg,
+                #d53f8c 210deg 240deg,
+                #e53e3e 240deg 270deg,
+                #f56500 270deg 300deg,
+                #d69e2e 300deg 330deg,
+                #e53e3e 330deg 360deg
+            );
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.5s ease;
+            border: 4px solid rgba(255,255,255,0.3);
+        }
+
+        .needle {
+            position: absolute;
+            width: 8px;
+            height: 130px;
+            background: linear-gradient(to top, #e53e3e 0%, #fff 70%, #e53e3e 100%);
+            border-radius: 4px;
+            top: 50%;
+            left: 50%;
+            transform-origin: center bottom;
+            transform: translate(-50%, -100%) rotate(0deg);
+            box-shadow: 0 0 20px rgba(229, 62, 62, 0.9);
+            transition: transform 0.5s ease;
+            z-index: 5;
+        }
+
+        .center-dot {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(255,255,255,0.9);
+            z-index: 10;
+            border: 3px solid #2d3748;
+        }
+
+        .direction-labels {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+        }
+
+        .direction-label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.6);
+            padding: 10px 15px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.5);
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .north { top: 20px; left: 50%; color: #e53e3e; }
+        .east { top: 50%; right: 20px; color: #38a169; }
+        .south { bottom: 20px; left: 50%; color: #3182ce; }
+        .west { top: 50%; left: 20px; color: #f56500; }
+
+        .current-direction {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 42px;
+            font-weight: bold;
+            padding: 25px 45px;
+            background: rgba(0,0,0,0.8);
+            border-radius: 35px;
+            min-width: 250px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            border: 4px solid rgba(255,255,255,0.3);
+            backdrop-filter: blur(10px);
+            z-index: 90;
+        }
+
+        .control-buttons {
+            position: fixed;
+            bottom: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 90;
+        }
+
+        .control-button {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 15px rgba(66, 153, 225, 0.4);
+            touch-action: manipulation;
+        }
+
+        .control-button:hover,
+        .control-button:focus {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(66, 153, 225, 0.6);
+            outline: none;
+        }
+
+        .control-button.stop {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            box-shadow: 0 6px 15px rgba(245, 101, 101, 0.4);
+        }
+
+        .control-button.stop:hover,
+        .control-button.stop:focus {
+            box-shadow: 0 8px 20px rgba(245, 101, 101, 0.6);
+        }
+
+        .instructions {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 20px;
+            font-weight: 600;
+            max-width: 300px;
+            line-height: 1.6;
+            background: rgba(0,0,0,0.6);
+            padding: 20px 25px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            z-index: 50;
+        }
+
+        .error-message {
+            color: #fc8181;
+            font-size: 18px;
+            margin-top: 15px;
+            text-align: center;
+            padding: 15px;
+            background: rgba(252, 129, 129, 0.15);
+            border-radius: 15px;
+            border: 2px solid rgba(252, 129, 129, 0.3);
+        }
+
+        .https-notice {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+            text-align: center;
+            z-index: 100;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+            .compass-container {
+                width: 300px;
+                height: 300px;
+            }
+            
+            .compass-face {
+                width: 260px;
+                height: 260px;
+            }
+            
+            .direction-labels {
+                font-size: 26px;
+            }
+            
+            .current-direction {
+                font-size: 36px;
+                padding: 20px 35px;
+            }
+            
+            .app-title {
+                font-size: 20px;
+            }
+            
+            .permission-screen {
+                max-width: 300px;
+                padding: 25px;
+            }
+            
+            .control-buttons {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+
+        @media (max-height: 700px) {
+            .current-direction {
+                font-size: 32px;
+                padding: 15px 30px;
+                bottom: 20px;
+            }
+            
+            .control-buttons {
+                bottom: 100px;
+            }
+        }
+
+        /* High contrast mode for accessibility */
+        @media (prefers-contrast: high) {
+            .compass-container {
+                border-color: #fff;
+            }
+            
+            .direction-label {
+                background: rgba(0,0,0,0.9);
+                border-color: #fff;
+            }
+            
+            .start-button {
+                background: #fff;
+                color: #000;
+            }
+        }
+
+        /* Reduce motion for users who prefer it */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-title">Voice-Guided Talking Compass</div>
+    
+    <!-- Permission Screen -->
+    <div class="permission-screen" id="permissionScreen">
+        <h2>🧭 Compass Access</h2>
+        <p>This talking compass needs access to your device's motion sensors to detect direction and provide voice guidance.</p>
+        <p><strong>For blind and visually impaired users:</strong> Hold your phone flat and tap the Start button to begin.</p>
+        <button class="start-button" id="startButton" 
+                aria-label="Start compass and request sensor permissions">
+            🚀 Start Compass
+        </button>
+        <div class="error-message" id="errorMessage" style="display: none;"></div>
+    </div>
+
+    <!-- Main Compass App -->
+    <div class="compass-app" id="compassApp">
+        <div class="status-bar" id="statusBar">Ready to Navigate</div>
+        
+        <div class="compass-container" id="compass" role="button" tabindex="0" 
+             aria-label="Compass display. Current direction will be announced">
+            <div class="compass-face">
+                <div class="needle" id="needle"></div>
+                <div class="center-dot"></div>
+                <div class="direction-labels">
+                    <div class="direction-label north">N</div>
+                    <div class="direction-label east">E</div>
+                    <div class="direction-label south">S</div>
+                    <div class="direction-label west">W</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-buttons">
+            <button class="control-button" id="startNavigation" 
+                    aria-label="Start voice navigation">
+                🎤 Start Navigation
+            </button>
+            <button class="control-button stop" id="stopNavigation" 
+                    aria-label="Stop voice navigation">
+                🛑 Stop Navigation
+            </button>
+        </div>
+        
+        <div class="current-direction" id="currentDirection">---</div>
+        
+        <div class="instructions" id="instructions">
+            Hold your phone flat and press "Start Navigation" to begin voice guidance.
+        </div>
+    </div>
+
+    <div class="https-notice">
+        ⚠️ Requires HTTPS hosting for sensor access
+    </div>
+
+    <script>
+        class VoiceGuidedCompass {
+            constructor() {
+                this.isActive = false;
+                this.isNavigating = false;
+                this.lastDirection = '';
+                this.lastDetailedDirection = '';
+                this.currentHeading = 0;
+                this.speechEnabled = true;
+                this.lastSpeechTime = 0;
+                this.speechCooldown = 2000; // 2 seconds between speech
+                this.orientationSupported = false;
+                this.permissionGranted = false;
+                
+                this.initElements();
+                this.bindEvents();
+                this.checkHTTPS();
+            }
+
+            initElements() {
+                this.permissionScreen = document.getElementById('permissionScreen');
+                this.compassApp = document.getElementById('compassApp');
+                this.startButton = document.getElementById('startButton');
+                this.compass = document.getElementById('compass');
+                this.needle = document.getElementById('needle');
+                this.statusBar = document.getElementById('statusBar');
+                this.currentDirection = document.getElementById('currentDirection');
+                this.instructions = document.getElementById('instructions');
+                this.errorMessage = document.getElementById('errorMessage');
+                this.startNavigation = document.getElementById('startNavigation');
+                this.stopNavigation = document.getElementById('stopNavigation');
+            }
+
+            bindEvents() {
+                this.startButton.addEventListener('click', () => this.requestPermissions());
+                this.startButton.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.requestPermissions();
+                });
+
+                this.startNavigation.addEventListener('click', () => this.startNavigation());
+                this.stopNavigation.addEventListener('click', () => this.stopNavigation());
+
+                // Keyboard accessibility
+                this.startButton.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.requestPermissions();
+                    }
+                });
+
+                this.startNavigation.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.startNavigationHandler();
+                    }
+                });
+
+                this.stopNavigation.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.stopNavigationHandler();
+                    }
+                });
+            }
+
+            checkHTTPS() {
+                if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                    this.showError('HTTPS required for sensor access. Please host this file on a secure server.');
+                    this.startButton.disabled = true;
+                    return false;
+                }
+                return true;
+            }
+
+            async requestPermissions() {
+                if (!this.checkHTTPS()) return;
+
+                try {
+                    this.startButton.textContent = 'Requesting Access...';
+                    this.startButton.disabled = true;
+
+                    // Check if DeviceOrientationEvent is supported
+                    if (typeof DeviceOrientationEvent === 'undefined') {
+                        throw new Error('Device orientation not supported');
+                    }
+
+                    // Request permission for iOS 13+ devices
+                    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                        const permission = await DeviceOrientationEvent.requestPermission();
+                        if (permission !== 'granted') {
+                            throw new Error('Permission denied for device orientation');
+                        }
+                    }
+
+                    // Test speech synthesis
+                    if (!window.speechSynthesis) {
+                        this.speechEnabled = false;
+                        this.showError('Speech synthesis not supported, but compass will still work');
+                    } else {
+                        // Test speech with a quick message
+                        this.speak('Compass access granted');
+                    }
+
+                    this.permissionGranted = true;
+                    this.orientationSupported = true;
+                    this.showCompassApp();
+
+                } catch (error) {
+                    console.error('Permission error:', error);
+                    this.showError(error.message || 'Failed to get sensor permissions');
+                    this.startButton.textContent = '🚀 Start Compass';
+                    this.startButton.disabled = false;
+                }
+            }
+
+            showCompassApp() {
+                this.permissionScreen.style.display = 'none';
+                this.compassApp.style.display = 'flex';
+                this.statusBar.textContent = 'Compass Ready';
+                this.speak('Compass ready. Press start navigation to begin voice guidance.');
+            }
+
+            startNavigationHandler() {
+                if (!this.permissionGranted) {
+                    this.speak('Please grant permissions first');
+                    return;
+                }
+
+                this.isNavigating = true;
+                this.compass.classList.add('active');
+                this.statusBar.textContent = 'Navigation Active';
+                this.instructions.textContent = 'Hold phone flat. Voice guidance is active.';
+                
+                // Add orientation listener
+                window.addEventListener('deviceorientation', this.handleOrientation.bind(this));
+                
+                this.speak('Voice navigation started. Hold your phone flat.');
+            }
+
+            stopNavigationHandler() {
+                this.isNavigating = false;
+                this.compass.classList.remove('active');
+                this.statusBar.textContent = 'Navigation Stopped';
+                this.instructions.textContent = 'Press start navigation to begin voice guidance.';
+                this.currentDirection.textContent = '---';
+                
+                // Remove orientation listener
+                window.removeEventListener('deviceorientation', this.handleOrientation.bind(this));
+                
+                this.speak('Voice navigation stopped');
+            }
+
+            handleOrientation(event) {
+                if (!this.isNavigating) return;
+
+                // Get compass heading (alpha represents rotation around z-axis)
+                let heading = event.alpha;
+                
+                // Handle different browser implementations
+                if (heading === null || heading === undefined) {
+                    // Try webkitCompassHeading for iOS Safari
+                    heading = event.webkitCompassHeading;
+                    if (heading !== null && heading !== undefined) {
+                        // webkitCompassHeading gives 0 for North, but we need to convert
+                        heading = 360 - heading;
+                    }
+                }
+                
+                if (heading === null || heading === undefined) {
+                    this.showError('Unable to get compass heading from your device');
+                    return;
+                }
+
+                // Normalize heading to 0-360 degrees
+                heading = heading < 0 ? heading + 360 : heading;
+                heading = heading % 360;
+                this.currentHeading = heading;
+
+                // Update needle rotation
+                this.needle.style.transform = `translate(-50%, -100%) rotate(${heading}deg)`;
+
+                // Determine direction
+                const direction = this.getDirection(heading);
+                const detailedDirection = this.getDetailedDirection(heading);
+                const directionText = this.getDirectionText(direction);
+
+                // Update display
+                this.currentDirection.textContent = directionText;
+
+                // Speak direction if it changed significantly
+                if (this.shouldAnnounceDirection(direction, detailedDirection)) {
+                    this.lastDirection = direction;
+                    this.lastDetailedDirection = detailedDirection;
+                    this.speakDirection(direction);
+                }
+            }
+
+            getDirection(heading) {
+                const directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
+                const index = Math.round(heading / 45) % 8;
+                return directions[index];
+            }
+
+            getDetailedDirection(heading) {
+                // More detailed direction for better change detection
+                const detailedDirections = [
+                    'North', 'North-northeast', 'Northeast', 'East-northeast',
+                    'East', 'East-southeast', 'Southeast', 'South-southeast',
+                    'South', 'South-southwest', 'Southwest', 'West-southwest',
+                    'West', 'West-northwest', 'Northwest', 'North-northwest'
+                ];
+                const index = Math.round(heading / 22.5) % 16;
+                return detailedDirections[index];
+            }
+
+            getDirectionText(direction) {
+                const shortForms = {
+                    'North': 'North',
+                    'Northeast': 'Northeast',
+                    'East': 'East',
+                    'Southeast': 'Southeast',
+                    'South': 'South',
+                    'Southwest': 'Southwest',
+                    'West': 'West',
+                    'Northwest': 'Northwest'
+                };
+                return shortForms[direction] || direction;
+            }
+
+            shouldAnnounceDirection(direction, detailedDirection) {
+                // Announce if main direction changed or if detailed direction changed significantly
+                return (direction !== this.lastDirection || 
+                        detailedDirection !== this.lastDetailedDirection);
+            }
+
+            speakDirection(direction) {
+                const now = Date.now();
+                if (now - this.lastSpeechTime > this.speechCooldown) {
+                    this.speak(direction);
+                    this.lastSpeechTime = now;
+                }
+            }
+
+            speak(text) {
+                if (!this.speechEnabled || !window.speechSynthesis) return;
+
+                // Cancel any ongoing speech
+                window.speechSynthesis.cancel();
+
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.9;
+                utterance.pitch = 1.1;
+                utterance.volume = 1;
+                utterance.lang = 'en-US';
+                
+                // Handle speech errors
+                utterance.onerror = (event) => {
+                    console.error('Speech synthesis error:', event.error);
+                };
+                
+                window.speechSynthesis.speak(utterance);
+            }
+
+            showError(message) {
+                this.errorMessage.textContent = message;
+                this.errorMessage.style.display = 'block';
+                this.speak(message);
+            }
+        }
+
+        // Initialize compass when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new VoiceGuidedCompass();
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Pause speech when page is hidden
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.pause();
+                }
+            } else {
+                // Resume speech when page becomes visible
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.resume();
+                }
+            }
+        });
+
+        // Prevent zoom on touch devices
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        });
+
+        // Prevent double-tap zoom
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+        // Handle orientation changes
+        window.addEventListener('orientationchange', () => {
+            // Recalibrate after orientation change
+            setTimeout(() => {
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.speak(new SpeechSynthesisUtterance('Orientation changed'));
+                }
+            }, 500);
+        });
+    </script>
+</body>
+</html>
